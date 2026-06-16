@@ -1,0 +1,126 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Energy Dignity Index (EDI) — Render Deployment Blueprint
+# Built by Kaushik Digital | Measuring Human Progress Through Energy Access
+#
+# HOW TO DEPLOY:
+# 1. Push this repo to GitHub
+# 2. Go to render.com → New → Blueprint
+# 3. Connect your GitHub repo
+# 4. Render reads this file and creates all services automatically
+# 5. Set secret environment variables in the Render dashboard
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  # ─── 1. BACKEND — FastAPI ──────────────────────────────────────────────────
+  - type: web
+    name: edi-backend
+    runtime: python
+    region: singapore          # closest to India — change to "oregon" for US
+    plan: starter              # upgrade to "standard" for production traffic
+    rootDir: backend
+    buildCommand: |
+      pip install --upgrade pip &&
+      pip install -r requirements.txt &&
+      python -m app.ml.generate_data &&
+      python -m app.ml.train_models
+    startCommand: |
+      alembic upgrade head &&
+      uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 2
+    healthCheckPath: /health
+    autoDeploy: true
+
+    envVars:
+      # ── App ──────────────────────────────────────────────────
+      - key: ENVIRONMENT
+        value: production
+      - key: APP_VERSION
+        value: "1.0.0"
+
+      # ── Database — injected by Render from the DB service ────
+      - key: DATABASE_URL
+        fromDatabase:
+          name: edi-postgres
+          property: connectionString
+
+      # ── Redis ────────────────────────────────────────────────
+      - key: REDIS_URL
+        fromService:
+          name: edi-redis
+          type: redis
+          property: connectionString
+
+      # ── CORS ─────────────────────────────────────────────────
+      - key: ALLOWED_ORIGINS
+        value: "https://edi-frontend.onrender.com,https://kaushikdigital.com"
+
+      # ── Secrets — SET THESE IN RENDER DASHBOARD, NOT HERE ────
+      - key: SECRET_KEY
+        sync: false                      # prompt user to set manually
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: SENDGRID_API_KEY
+        sync: false
+
+      # ── EDS Weights (adjustable) ─────────────────────────────
+      - key: EDS_WEIGHT_EDUCATION
+        value: "0.25"
+      - key: EDS_WEIGHT_HEALTHCARE
+        value: "0.20"
+      - key: EDS_WEIGHT_ECONOMIC
+        value: "0.20"
+      - key: EDS_WEIGHT_WOMEN
+        value: "0.15"
+      - key: EDS_WEIGHT_DIGITAL
+        value: "0.10"
+      - key: EDS_WEIGHT_CARBON
+        value: "0.10"
+
+  # ─── 2. FRONTEND — Next.js ─────────────────────────────────────────────────
+  - type: web
+    name: edi-frontend
+    runtime: node
+    region: singapore
+    plan: starter
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    autoDeploy: true
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        value: https://edi-backend.onrender.com/api/v1
+      - key: NEXT_PUBLIC_APP_URL
+        value: https://edi-frontend.onrender.com
+      - key: NEXT_PUBLIC_GOOGLE_CLIENT_ID
+        sync: false
+
+  # ─── 3. REDIS ──────────────────────────────────────────────────────────────
+  - type: redis
+    name: edi-redis
+    region: singapore
+    plan: starter              # 25 MB — upgrade to "standard" for production
+    maxmemoryPolicy: allkeys-lru
+    ipAllowList: []            # allow all internal Render services
+
+# ─── 4. POSTGRESQL DATABASE ────────────────────────────────────────────────
+databases:
+  - name: edi-postgres
+    region: singapore
+    plan: starter              # 256 MB — upgrade to "standard" for production
+    databaseName: edi_db
+    user: edi_user
+    ipAllowList: []            # allow all internal Render services

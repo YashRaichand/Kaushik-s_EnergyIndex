@@ -1,0 +1,47 @@
+# ─── Python ──────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+
+# ─── ML Models (too large for git) ───────────────────────────
+backend/app/ml/saved_models/*.pkl
+backend/app/ml/data/*.csv
+!backend/app/ml/data/.gitkeep
+!backend/app/ml/saved_models/.gitkeep
+
+# ─── Node / Next.js ──────────────────────────────────────────
+node_modules/
+.next/
+out/
+.vercel/
+*.tsbuildinfo
+.DS_Store
+npm-debug.log*
+yarn-error.log*
+
+# ─── Environment ─────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# ─── Docker ──────────────────────────────────────────────────
+docker/ssl/
+
+# ─── Editor ──────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
